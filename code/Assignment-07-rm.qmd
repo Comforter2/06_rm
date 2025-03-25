@@ -1,0 +1,331 @@
+---
+title: "Assignment 7 - Repeated measure"
+author: "COMFORT ADEGBENRO"  
+format:
+  html:
+    code-fold: true 
+    embed-resources: true
+    toc: true
+    number-sections: true
+    theme: cerulean
+---
+
+# Introduction  
+This assignment will ask you to conduct a repeated measure analysis. 
+
+For that, you will first need to watch (and code along with) the following repeated measure video:
+
+- repeated measure lecture: https://youtu.be/-ANqcQhB--A?si=7YeeYqDgcLsj5erW&t=4268 (starts at 01:11:08, watch till the end, about 50 min)
+
+- repeated measure lab part 1: https://youtu.be/GY2e-9M5bFM?si=TIw5F4EF2m9Dx5uK (watch full video, ~1h 50 min)  
+
+- repeated measure lab part 2: https://youtu.be/F3vg89ymLeM?si=Zv-RPIdS8mig4EMb
+(watch full video, ~2h)
+
+- The partial script for the video above is in our GitHub repository, 04-classcode, **03-11_repeatedmeasure_partial.qmd**.  
+
+- The data set for this exercise is in oir GitHub repository, 03-classcode, **wheat_nk_balkh_rm.csv**.
+
+
+**AFTER watching the video and developing the code in class**, then start working on this HW assignment.  
+
+# Instructions  
+
+  - Create on your GitHub a repo named `06_rm`.  
+  - Clone it to your computer, create the necessary subfolders.
+  - Move the script **03-11_repeatedmeasure_partial.qmd** into the `code` subfolder.
+  - Move this script into the `code` subfolder  
+  - Move the **wheat_nk_balkh_rm.csv** data set into the `data` subfolder  
+  - On this script, fill your name under the `title` section of the YAML  
+  
+# Goal of this assignment  
+The goal is this assignment is for you to **learn about and conduct a full repeated measure analysis**.
+
+Once you finish coding along with the videos, answer the following questions.
+
+# Questions  
+In class, we decided to use AIC as the metric to select the best model, and this determined the best model to be the one with a general error correlation matrix structure. If we had used BIC as the metric, then the model selected would have been the default model. Here, you are asked to use BIC and thus select the default model as the best, and perform all the steps after model selection. You may copy and paste the class script, and adapt the copied version to implement these changes.  
+
+## Q1: Include here the residual assessment of the default model. Include each plot and its interpretation. How do these residuals from the default model visually compare to those from the general model?  
+
+```{r set up}
+#| message: false
+#| warning: false
+library(tidyverse) # for data wrangling and plotting
+library(car) # for Anova function
+library(broom.mixed)
+library(lme4)
+library(broom) # for model residuals extraction
+library(emmeans) # for model mean extraction
+library(multcomp) # for pairwise comparison letter display
+library(nlme) # for repeated measure correlation structures 
+```
+
+
+```{r import data & wrangling}
+#| message: false
+#| warning: false
+
+rm_rcbd_df = read_csv("../data/wheat_nk_balkh_rm.csv") %>%
+  mutate(across(trt:splot, ~factor(.))) %>%
+  mutate(fdap = factor(dap))
+
+head(rm_rcbd_df)
+```
+
+```{r quick summary}
+#| message: false
+#| warning: false
+
+summary(rm_rcbd_df)
+```
+```{r default model based on BIC}
+#| message: false
+#| warning: false
+
+options(contrasts = c("contr.sum", "contr.poly"))
+
+mod1_default = lme(yield_kgha ~ krate_kgha*nrate_kgha*fdap,
+                   random = ~ 1 | block/krate_kgha/nrate_kgha,
+                   data = rm_rcbd_df)
+```
+
+```{r extracting residuals}
+#| message: false
+#| warning: false
+
+mod1_default_resid <- augment(mod1_default) %>%
+  mutate(.stdresid=resid(mod1_default, type="pearson", scaled=T))
+
+head(mod1_default_resid)
+```
+
+```{r block raneff}
+#| message: false
+#| warning: false
+
+ranef(mod1_default)[[1]] %>%
+  ggplot(aes(sample=`(Intercept)`))+
+  stat_qq(  shape = 21,
+            fill = "purple", 
+            size = 3,
+            alpha = .7
+  )+
+  stat_qq_line()+
+  labs(x = "Theoretical quantile",
+       y = "Sample quantile")+
+  theme_bw()
+```
+The distribution of the block random effect looks normal and is comparable to the general model plot.
+
+```{r block:krate raneff}
+#| message: false
+#| warning: false
+
+ranef(mod1_default)[[2]] %>%
+  ggplot(aes(sample=`(Intercept)`))+
+  stat_qq(  shape = 21,
+            fill = "purple", 
+            size = 3,
+            alpha = .7
+  )+
+  stat_qq_line()+
+  labs(x = "Theoretical quantile",
+       y = "Sample quantile")+
+  theme_bw()
+```
+Similarly, the distribution of the block by k rate random effect looks normal and is comparable to the general model plot.
+
+```{r block:krate:nrate raneff}
+#| message: false
+#| warning: false
+
+ranef(mod1_default)[[3]] %>%
+  ggplot(aes(sample=`(Intercept)`))+
+  stat_qq(  shape = 21,
+            fill = "purple", 
+            size = 3,
+            alpha = .7
+  )+
+  stat_qq_line()+
+  labs(x = "Theoretical quantile",
+       y = "Sample quantile")+
+  theme_bw()
+```
+The qq plot for the block by k rate by n rate random effect shows that they are normally distributed, independent and homogeneous, though some deviations can be seen at the tails. This plot is comparable to that of the general model. 
+
+```{r within group error check}
+#| message: false
+#| warning: false
+
+ggplot(mod1_default_resid, aes(x=.fitted, y=.stdresid))+
+  geom_hline(yintercept = 0, color="red")+
+  geom_point(shape = 21,
+             fill = "purple", 
+             size = 3,
+             alpha = .7)+
+  geom_smooth()+
+  geom_hline(yintercept = c(-3,3), color = "red")+
+  theme_bw()
+```
+The residuals appear to be homogeneous with no patterns observed indicating independence. Additionally as all the points fall within the -3 and +3 mark, there are no outliers. This plot looks similar to the general model selected from AIC, however, the smooth line around the zero appears to be sitting better on the zero mark compared to the general model.
+
+```{r qq plot}
+#| message: false
+#| warning: false
+
+ggplot(mod1_default_resid, aes(sample=.stdresid))+
+  stat_qq(  shape = 21,
+            fill = "purple", 
+            size = 3,
+            alpha = .7
+  )+
+  stat_qq_line()+
+  labs(x = "Theoretical quantile",
+       y = "Sample quantile")+
+  theme_bw()
+```
+The residuals are normally distributed, but comparing this plot to that of the general model, there seems to be less deviation at the tail, suggesting the distribution normality might be better.
+
+```{r density plot}
+#| message: false
+#| warning: false
+
+ggplot(mod1_default_resid, aes(x=.stdresid))+
+  geom_density(color = "black",
+               fill = "purple",
+               alpha = .7)+
+  scale_x_continuous(breaks = c(-3,0,3), limits = c(-3,3))+
+  theme_bw()
+```
+The density plot equally confirms that the residuals from the default model are normally distributed. However, comparing to the general model, the peak is higher, suggesting that more of the residuals are centered around zero and less variaability.
+
+## Q2: Include here the ANOVA table from the default model. How does it compare with the ANOVA table from the general model? 
+
+```{r ANOVA summary of default model}
+#| message: false
+#| warning: false
+ 
+Anova(mod1_default, type = 3)
+```
+Results of the ANOVA are quite different from the first (general) model. For the general model, in addition to harvesting date, and interaction between k rate and n rate, there was a significant interaction between all three treatment factors. Meanwhile, the default model did not show this interaction between the three factors as being statistically significant at a p-value of 0.05.
+
+```{r krate:nrate means & comparison}
+#| message: false
+#| warning: false
+
+rm_rcbd_cld_kndap1 <- emmeans(mod1_default, ~nrate_kgha:krate_kgha) %>%
+  cld(reversed = T,
+      Letters = letters,
+      adjust = "none"
+      ) %>%
+  as.data.frame() %>%
+  mutate(letter = trimws(.group)) %>%
+  mutate(trtname = paste0(nrate_kgha,"+",krate_kgha))
+
+rm_rcbd_cld_kndap1
+```
+Means were extracted for the significant n rate by k rate interaction.
+
+```{r fdap means & comparison}
+#| message: false
+#| warning: false
+
+rm_rcbd_cld_kndap2 <- emmeans(mod1_default, ~fdap) %>%
+  cld(reversed = T,
+      Letters = letters,
+      adjust = "none"
+      ) %>%
+  as.data.frame() %>%
+  mutate(letter = trimws(.group))
+
+rm_rcbd_cld_kndap2
+```
+Means were also extracted and compared for the harvest date.
+
+```{r krate:nrate boxplot}
+#| message: false
+#| warning: false
+
+ggplot() +
+  geom_boxplot(data = rm_rcbd_df,
+               aes(x = trtname, 
+                   y = yield_kgha,
+                   fill = trtname)) +
+  geom_jitter(data = rm_rcbd_df,
+              aes(x = trtname, y = yield_kgha,
+                  color = trtname), 
+              alpha = 0.6) +
+  geom_label(data = rm_rcbd_cld_kndap1,
+            aes(x = trtname,
+                y = emmean,
+                label = letter),
+            size = 3) +
+  labs(x = "N rate + K rate (kg/ha)",
+       y = "Yield (kg/ha)") +
+  scale_fill_viridis_d() +
+  scale_color_viridis_d() +
+  theme(legend.position = "none")
+
+ggsave("../output/k_nrate.png",
+       height = 4,
+       width = 6)
+```
+From the pairwise comparison and the above boxplot, to improve yield, the best performing n rate by k rate combinations (sharing the same letter) were: 0+60, 0+0, 100+30, 200+0, and 200+30 nrate + krate combinations. Although some of these would be considered to be at the same level with other treatment combinations. Lastly, the lowest performing combinations were: 100+0, 0+30 100+60 and 200+60 nrate + krate combinations.
+
+```{r fdap boxplot}
+#| message: false
+#| warning: false
+
+ggplot() +
+  geom_boxplot(data = rm_rcbd_df,
+               aes(x = fdap, 
+                   y = yield_kgha,
+                   fill = fdap
+                   ), width = 0.3) +
+  geom_jitter(data = rm_rcbd_df,
+              aes(x = fdap, y = yield_kgha,
+                  color = fdap), 
+              alpha = 0.6) +
+  geom_label(data = rm_rcbd_cld_kndap2,
+            aes(x = fdap,
+                y = emmean,
+                label = letter),
+            size = 3) +
+  labs(x = "Harvest, days after planting",
+       y = "Yield (kg/ha)") +
+  scale_fill_viridis_d() +
+  scale_color_viridis_d() +
+  theme(legend.position = "none")
+
+ggsave("../output/fdap.png",
+       height = 4,
+       width = 6)
+```
+Pairwise comparison showed that harvesting at 150 days after planting resulted in the higher yield. Additionally, the result showed that as days after planting increased, the yield in kg/ha equally increased. This was comparable to the general model.
+
+# Submitting your work  
+Once you have developed all the code and answers, make sure to Render this quarto file.  
+
+**Notes on rendering**:  
+
+- Make sure to render your work and inspect how the final html look like.  
+- If it does not look professional for whatever reason, then fix the issue, re-render it, recheck.  
+- Only send me your work once your html file looks professional.  
+  - **DO NOT** delete the file's heading levels (# and ##). They set up the proper heading 1 and 2 levels, and I use them to guide my grading.  
+  - If a given chunk is also outputting warnings or messages, inhibit this behavior by changing the chunk options `message` and `warning` to `FALSE` (I'll demo this in a moment).  
+  
+  - If, after rendered, 2 lines of text are connected and you wish to "break line" between them, add 2 extra spaces after the first one (I'lld demo this in a moment).  
+
+After rendering, an .html file will be created on your `code` folder.  
+
+Rename this file to `Assignment-07-rm-LASTNAME.html`.    
+
+For ex., mine would be `Assignment-07-rm-Bastos.html`.
+
+Submit your work by uploading the **html** file to **eLC Assigment #7 - Repeated measure** by Mar 25 11:59 pm.  
+  
+
+
+
+
