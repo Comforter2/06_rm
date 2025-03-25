@@ -198,7 +198,7 @@ ggplot(mod1_default_resid, aes(x=.stdresid))+
   scale_x_continuous(breaks = c(-3,0,3), limits = c(-3,3))+
   theme_bw()
 ```
-The density plot equally confirms that the residuals from the default model are normally distributed. However, comparing to the general model, the peak is higher, suggesting that more of the residuals are centered around zero and less variaability.
+The density plot equally confirms that the residuals from the default model are normally distributed. However, comparing to the general model, the peak is higher, suggesting that more of the residuals are centered around zero and less variability.
 
 ## Q2: Include here the ANOVA table from the default model. How does it compare with the ANOVA table from the general model? 
 
@@ -265,7 +265,9 @@ ggplot() +
        y = "Yield (kg/ha)") +
   scale_fill_viridis_d() +
   scale_color_viridis_d() +
-  theme(legend.position = "none")
+  theme_minimal() +
+  theme(legend.position = "none") 
+  
 
 ggsave("../output/k_nrate.png",
        height = 4,
@@ -296,6 +298,7 @@ ggplot() +
        y = "Yield (kg/ha)") +
   scale_fill_viridis_d() +
   scale_color_viridis_d() +
+  theme_minimal() +
   theme(legend.position = "none")
 
 ggsave("../output/fdap.png",
